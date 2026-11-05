@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test FTP Rullo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: schermo da leggere a distanza dal rullo, watt enormi al centro, profilo della sessione sotto, risultato in fondo. */
+:root {
+  color-scheme: dark;
+  --bg: #10161b;
+  --panel: #182028;
+  --line: #2b3741;
+  --fg: #eef3f6;
+  --muted: #9fb0bc;
+  --easy: #62b0dc;
+  --hard: #f6bd4a;
+  --test: #ff6a45;
+  --cool: #6ccfa0;
+  --zone: var(--easy);
+  --display: "Saira Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+html, body { min-height: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.45;
+}
+.wrap {
+  max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 32px;
+}
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.top h1 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; letter-spacing: .02em; margin: 0; }
+.top span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.board {
+  background: var(--panel); border-radius: 10px; border-top: 6px solid var(--zone);
+  padding: clamp(14px, 3vw, 26px); display: grid; gap: 12px; transition: border-color .3s;
+}
+.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.phase { font-family: var(--display); font-weight: 600; font-size: clamp(1.6rem, 5vw, 2.6rem); line-height: 1.05; color: var(--zone); margin: 0; }
+.step { color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.big { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px 24px; align-items: end; }
+.metric { min-width: 0; }
+.label { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.value { font-family: var(--display); font-weight: 700; line-height: .92; font-variant-numeric: tabular-nums; }
+.value small { font-size: .32em; font-weight: 600; color: var(--muted); margin-left: .12em; }
+#watt { font-size: clamp(6.5rem, 26vw, 14rem); color: var(--zone); }
+#clock { font-size: clamp(4.4rem, 17vw, 9.5rem); }
+#rpm { font-size: clamp(2.6rem, 8vw, 4.4rem); }
+.sub { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px 24px; align-items: center; }
+.next { color: var(--muted); min-width: 0; }
+.next b { color: var(--fg); font-weight: 600; }
+.cue { font-size: clamp(1.05rem, 2.7vw, 1.4rem); font-weight: 500; min-height: 3em; margin: 0; }
+.adj { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adj[hidden] { display: none; }
+.profile { position: relative; height: 92px; display: flex; align-items: flex-end; gap: 2px; }
+.bar { min-width: 2px; border-radius: 2px 2px 0 0; opacity: .5; }
+.bar.on { opacity: 1; }
+.marker { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--fg); left: 0; }
+.ticks { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.ctl { display: flex; gap: 10px; flex-wrap: wrap; }
+button {
+  font-family: var(--body); font-size: 1.05rem; font-weight: 600; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 13px 18px; min-height: 52px; cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--hard); outline-offset: 2px; }
+#go { flex: 1 1 180px; background: var(--zone); border-color: var(--zone); color: #10161b; font-size: 1.2rem; }
+.adj button { min-height: 44px; padding: 6px 14px; }
+.notes, .result { background: var(--panel); border-radius: 10px; padding: clamp(14px, 3vw, 22px); }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.5rem; margin: 0 0 8px; }
+.notes ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 68ch; }
+.fields { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.fields label { display: grid; gap: 4px; color: var(--muted); font-size: .9rem; }
+input {
+  font-family: var(--display); font-size: 1.7rem; font-weight: 600; width: 150px; padding: 6px 10px; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-variant-numeric: tabular-nums;
+}
+.out { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.out div { min-width: 0; }
+.out .value { font-size: 2.1rem; }
+.hint { color: var(--muted); margin: 10px 0 0; max-width: 68ch; }
+@media (max-width: 620px) {
+  .big, .sub { grid-template-columns: 1fr; }
+  .profile { height: 64px; }
+}
+@media (prefers-reduced-motion: reduce) { .board { transition: none; } }
+.live { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px 20px; border-top: 1px solid var(--line); padding-top: 12px; }
+.live[hidden] { display: none; }
+.live .value { font-size: clamp(2.4rem, 7vw, 4rem); }
+.good { color: var(--cool); } .off { color: var(--hard); }
+.bt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
+.bt label { display: flex; align-items: center; gap: 6px; }
+.bt input { width: 20px; height: 20px; padding: 0; }
+/* Schermo intero: tutto in una schermata, leggibile dal rullo */
+body.full { overflow: hidden; }
+body.full .top, body.full .notes, body.full .result, body.full .bt { display: none; }
+body.full .wrap { max-width: none; height: 100dvh; padding-block: 10px; gap: 0; }
+body.full .board { flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto auto auto auto auto; gap: 1.1vh; border-radius: 0; padding: 1.6vh 2.2vw; border-top-width: 10px; }
+body.full .phase { font-size: clamp(2rem, 6vh, 4rem); }
+body.full .step { font-size: 1.1rem; }
+body.full .big { grid-template-columns: 1.2fr 1fr; align-items: center; min-height: 0; }
+body.full #watt { font-size: min(34vh, 21vw); }
+body.full #clock { font-size: min(27vh, 15vw); }
+body.full .sub { grid-template-columns: 1.2fr 1fr; }
+body.full .cue { font-size: clamp(1.2rem, 3.4vh, 2rem); min-height: 0; }
+body.full #rpm { font-size: clamp(2.4rem, 7vh, 4.6rem); }
+body.full .live { padding-top: .8vh; }
+body.full .live .value { font-size: clamp(2.8rem, 9vh, 6rem); }
+body.full .next { font-size: clamp(1rem, 2.4vh, 1.4rem); }
+body.full .profile { height: 8vh; }
+body.full .ticks { display: none; }
+body.full .ctl button, body.full .adj button { min-height: 44px; padding: 6px 14px; }
+@media (max-width: 760px) {
+  body.full { overflow: auto; }
+  body.full .wrap { height: auto; min-height: 100dvh; }
+  body.full .big, body.full .sub { grid-template-columns: 1fr; }
+  body.full #watt { font-size: 34vw; } body.full #clock { font-size: 24vw; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <h1>Test FTP sul rullo</h1>
+    <span>Trascorso <b id="done">0:00</b> su 43:00</span>
+  </div>
+
+  <section class="board" aria-live="polite">
+    <div class="head">
+      <p class="phase" id="phase"></p>
+      <span class="step" id="step"></span>
+    </div>
+    <div class="big">
+      <div class="metric">
+        <div class="label">Watt da tenere</div>
+        <div class="value" id="watt"></div>
+      </div>
+      <div class="metric">
+        <div class="label">Tempo rimasto</div>
+        <div class="value" id="clock"></div>
+      </div>
+    </div>
+    <div class="sub">
+      <p class="cue" id="cue"></p>
+      <div class="metric">
+        <div class="label">Cadenza</div>
+        <div class="value" id="rpm"></div>
+      </div>
+    </div>
+    <div class="live" id="live" hidden>
+      <div><div class="label">Watt 3 secondi</div><div class="value" id="p3">0</div></div>
+      <div><div class="label">Media fase</div><div class="value" id="pa">0</div></div>
+      <div><div class="label">Cadenza reale</div><div class="value" id="cad">0</div></div>
+    </div>
+    <div class="adj" id="adj" hidden>
+      <span class="label">Obiettivo test</span>
+      <button id="minus" type="button" aria-label="Meno 5 watt">-5 W</button>
+      <button id="plus" type="button" aria-label="Più 5 watt">+5 W</button>
+    </div>
+    <div class="next" id="next"></div>
+    <div>
+      <div class="profile" id="profile" aria-hidden="true"><div class="marker" id="marker"></div></div>
+      <div class="ticks"><span>0'</span><span>15' inizio test</span><span>35' fine test</span><span>43'</span></div>
+    </div>
+    <div class="bt">
+      <button id="bt" type="button">Collega pedali</button>
+      <label for="dbl"><input id="dbl" type="checkbox"> Raddoppia i watt</label>
+      <span id="btmsg">Bluetooth con Chrome su Mac. Se non si collega, il timer funziona lo stesso.</span>
+    </div>
+    <div class="ctl">
+      <button id="go" type="button">Avvia</button>
+      <button id="back" type="button">Fase indietro</button>
+      <button id="skip" type="button">Fase avanti</button>
+      <button id="reset" type="button">Azzera</button>
+      <button id="full" type="button">Schermo intero</button>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>Prima di partire</h2>
+    <ol>
+      <li>Avvia l'attività bici sul Garmin insieme al timer.</li>
+      <li>Calibra il Rally RS100: i watt li leggi sul Garmin, questa pagina ti dice solo quanti tenerne.</li>
+      <li>Il rullo non regola la resistenza da solo: i watt li fai con rapporto e cadenza. Scegli il rapporto per 150 W a 85-90 rpm.</li>
+      <li>Ventola addosso e borraccia a portata di mano. Alza il volume: i bip segnano ogni cambio fase.</li>
+      <li>Premi LAP sul Garmin a inizio e fine test, così hai la media esatta dei 20'.</li>
+      <li>Se colleghi i pedali, confronta i watt con il Garmin nel riscaldamento. Se qui sono la metà, spunta Raddoppia i watt. Il dato che vale resta quello del Garmin.</li>
+    </ol>
+  </section>
+
+  <section class="result">
+    <h2>Risultato</h2>
+    <div class="fields">
+      <label for="avgw">Potenza media 20' (W)<input id="avgw" type="number" inputmode="numeric" min="50" max="500" placeholder="150"></label>
+      <label for="avgh">FC media ultimi 15'<input id="avgh" type="number" inputmode="numeric" min="60" max="220" placeholder="150"></label>
+    </div>
+    <div class="out" id="out"></div>
+    <p class="hint" id="hint">Inserisci la potenza media: calcolo FTP (95%) e fasce del piano.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  var COL = { easy: "var(--easy)", hard: "var(--hard)", test: "var(--test)", cool: "var(--cool)" };
+  var PLAN = [
+    { n: "Riscaldamento", d: 360, w: 95, r: "85-90", z: "easy", c: "Gira sciolto, respiro tranquillo." },
+    { n: "Vivace 1 di 3", d: 60, w: 165, r: "90-95", z: "hard", c: "Sveglia le gambe, senza arrivare al limite." },
+    { n: "Facile", d: 60, w: 95, r: "85-90", z: "easy", c: "Molla tutto e recupera." },
+    { n: "Vivace 2 di 3", d: 60, w: 165, r: "90-95", z: "hard", c: "Stesso sforzo di prima." },
+    { n: "Facile", d: 60, w: 95, r: "85-90", z: "easy", c: "Recupera." },
+    { n: "Vivace 3 di 3", d: 60, w: 165, r: "90-95", z: "hard", c: "Ultimo. Prova il rapporto del test." },
+    { n: "Facile, preparati", d: 240, w: 95, r: "85-90", z: "easy", c: "Bevi e metti il rapporto del test. Alla fine premi LAP sul Garmin." },
+    { n: "Test 20 minuti", d: 1200, w: 150, r: "85-90", z: "test", test: true, c: "" },
+    { n: "Defaticamento", d: 480, w: 85, r: "80-90", z: "cool", c: "Premi LAP sul Garmin. Gira leggero: il test è finito." }
+  ];
+  var TOTAL = PLAN.reduce(function (s, p) { return s + p.d; }, 0);
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {}; ["phase", "step", "watt", "clock", "rpm", "cue", "next", "profile", "marker", "go", "back", "skip", "reset", "done", "adj", "minus", "plus", "avgw", "avgh", "out", "hint"].forEach(function (k) { els[k] = $(k); });
+
+  var elapsed = 0, running = false, startedAt = 0, base = 0, lastBeep = null, audio = null, wake = null, armed = 0, last = -1;
+
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  var savedT = parseInt(load("ftp-target"), 10);
+  if (savedT >= 100 && savedT <= 300) PLAN[7].w = savedT;
+  var savedE = parseFloat(load("ftp-elapsed"));
+  if (savedE > 0 && savedE < TOTAL) { elapsed = savedE; base = savedE; }
+
+  var maxW = 180;
+  var bars = PLAN.map(function (p) {
+    var b = document.createElement("div");
+    b.className = "bar";
+    b.style.flexGrow = p.d;
+    b.style.flexBasis = "0";
+    b.style.height = Math.round(p.w / maxW * 100) + "%";
+    b.style.background = COL[p.z];
+    els.profile.insertBefore(b, els.marker);
+    return b;
+  });
+
+  function fmt(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+  function at(t) {
+    var a = 0;
+    for (var i = 0; i < PLAN.length; i++) { if (t < a + PLAN[i].d) return { i: i, into: t - a, left: a + PLAN[i].d - t, start: a }; a += PLAN[i].d; }
+    return { i: PLAN.length - 1, into: PLAN[PLAN.length - 1].d, left: 0, start: TOTAL - PLAN[PLAN.length - 1].d };
+  }
+  function testCue(into) {
+    if (into < 60) return "Parti a " + PLAN[7].w + " W. Non superarli nel primo minuto.";
+    if (into < 300) return "Costante. Il primo errore è partire troppo forte.";
+    if (into < 600) return "Regolare. Se è comodo, +5 W con il pulsante qui sotto.";
+    if (into < 900) return "Metà test. Respira, spalle basse, cadenza stabile.";
+    if (into < 1140) return "Ultimi 5 minuti. Ora dai quello che ti resta.";
+    return "Ultimo minuto: tutto quello che hai.";
+  }
+  function beep(f, ms) {
+    if (!audio) return;
+    try {
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = f; g.gain.value = .35; o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + ms / 1000);
+    } catch (e) {}
+  }
+  function askWake() {
+    if (!navigator.wakeLock || !running) return;
+    navigator.wakeLock.request("screen").then(function (w) { wake = w; }).catch(function () {});
+  }
+  function render() {
+    var finished = elapsed >= TOTAL, s = at(elapsed), p = PLAN[s.i], nx = PLAN[s.i + 1];
+    document.documentElement.style.setProperty("--zone", COL[p.z]);
+    els.phase.textContent = finished ? "Test completato" : p.n;
+    els.step.textContent = "Fase " + (s.i + 1) + " di " + PLAN.length;
+    els.watt.innerHTML = p.w + "<small>W</small>";
+    els.clock.textContent = fmt(s.left);
+    els.rpm.innerHTML = p.r + "<small>rpm</small>";
+    els.cue.textContent = finished ? "Ferma il Garmin e scrivi qui sotto la potenza media." : (p.test ? testCue(s.into) : p.c);
+    els.adj.hidden = !p.test || finished;
+    els.next.innerHTML = nx && !finished ? "Poi: <b>" + nx.n + "</b>, " + nx.w + " W per " + fmt(nx.d) : "";
+    els.done.textContent = fmt(elapsed);
+    els.marker.style.left = Math.min(100, elapsed / TOTAL * 100) + "%";
+    bars.forEach(function (b, i) { b.classList.toggle("on", i === s.i && !finished); b.style.height = Math.round(PLAN[i].w / maxW * 100) + "%"; });
+    els.go.textContent = finished ? "Fatto" : running ? "Pausa" : elapsed > 0 ? "Riprendi" : "Avvia";
+    els.go.disabled = finished;
+  }
+  function tick() {
+    if (!running) return;
+    elapsed = Math.min(TOTAL, base + (Date.now() - startedAt) / 1000);
+    var s = at(elapsed), sec = Math.ceil(s.left), key = s.i + ":" + sec;
+    if (sec <= 3 && sec >= 1 && key !== lastBeep) { beep(660, 120); lastBeep = key; }
+    if (s.i !== last) { if (last !== -1) beep(990, 450); last = s.i; }
+    if (elapsed >= TOTAL) { running = false; beep(990, 800); store("ftp-elapsed", "0"); if (wake) { wake.release().catch(function () {}); wake = null; } }
+    else if (Math.floor(elapsed) % 5 === 0) store("ftp-elapsed", String(elapsed));
+    render();
+  }
+  function jump(t) {
+    elapsed = Math.max(0, Math.min(TOTAL - .01, t)); base = elapsed; startedAt = Date.now(); last = at(elapsed).i;
+    store("ftp-elapsed", String(elapsed)); render();
+  }
+  els.go.addEventListener("click", function () {
+    if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+    if (audio && audio.resume) audio.resume();
+    if (running) { running = false; base = elapsed; store("ftp-elapsed", String(elapsed)); }
+    else { running = true; base = elapsed; startedAt = Date.now(); last = at(elapsed).i; beep(880, 200); askWake(); }
+    render();
+  });
+  els.skip.addEventListener("click", function () { var s = at(elapsed); jump(s.start + PLAN[s.i].d); });
+  els.back.addEventListener("click", function () {
+    var s = at(elapsed);
+    if (s.into > 5 || s.i === 0) jump(s.start); else jump(s.start - PLAN[s.i - 1].d);
+  });
+  els.reset.addEventListener("click", function () {
+    if (Date.now() - armed > 4000) { armed = Date.now(); els.reset.textContent = "Tocca ancora per azzerare"; setTimeout(function () { els.reset.textContent = "Azzera"; }, 4000); return; }
+    armed = 0; running = false; els.reset.textContent = "Azzera"; jump(0); last = -1; store("ftp-elapsed", "0"); render();
+  });
+  function setT(d) { PLAN[7].w = Math.max(100, Math.min(300, PLAN[7].w + d)); store("ftp-target", String(PLAN[7].w)); render(); }
+  els.minus.addEventListener("click", function () { setT(-5); });
+  els.plus.addEventListener("click", function () { setT(5); });
+  document.addEventListener("keydown", function (e) { if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "BUTTON") { e.preventDefault(); els.go.click(); } });
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") { askWake(); tick(); } });
+
+  /* Bluetooth: servizio standard Cycling Power */
+  var live = { p: 0, smp: [], sum: 0, n: 0, testSum: 0, testN: 0, phase: -1, cr: null, ct: null, cad: 0, cadAt: 0, char: null, dev: null };
+  var m = {}; ["live", "p3", "pa", "cad", "bt", "dbl", "btmsg"].forEach(function (k) { m[k] = $(k); });
+  function parse(dv) {
+    var fl = dv.getUint16(0, true), o = 2, pw = dv.getInt16(o, true), out = { p: pw }; o += 2;
+    if (fl & 1) o += 1;
+    if (fl & 4) o += 2;
+    if (fl & 16) o += 6;
+    if (fl & 32) { out.cr = dv.getUint16(o, true); out.ct = dv.getUint16(o + 2, true); }
+    return out;
+  }
+  function onData(e) {
+    var d = parse(e.target.value), now = Date.now(), p = d.p * (m.dbl.checked ? 2 : 1);
+    live.p = p; live.smp.push([now, p]);
+    while (live.smp.length && now - live.smp[0][0] > 3000) live.smp.shift();
+    if (d.cr !== undefined) {
+      if (live.cr !== null) {
+        var dr = (d.cr - live.cr + 65536) % 65536, dt = (d.ct - live.ct + 65536) % 65536;
+        if (dr > 0 && dt > 0) { live.cad = dr / (dt / 1024) * 60; live.cadAt = now; }
+      }
+      live.cr = d.cr; live.ct = d.ct;
+    }
+    if (running) {
+      var i = at(elapsed).i;
+      if (i !== live.phase) { live.phase = i; live.sum = 0; live.n = 0; }
+      live.sum += p; live.n++;
+      if (PLAN[i].test) { live.testSum += p; live.testN++; }
+    }
+    show();
+  }
+  function show() {
+    var a3 = live.smp.length ? Math.round(live.smp.reduce(function (s, x) { return s + x[1]; }, 0) / live.smp.length) : 0;
+    var t = PLAN[at(elapsed).i].w, av = live.n ? Math.round(live.sum / live.n) : 0;
+    m.p3.textContent = a3; m.pa.textContent = av;
+    m.p3.className = "value " + (Math.abs(a3 - t) <= 5 ? "good" : "off");
+    m.cad.textContent = Date.now() - live.cadAt < 4000 ? Math.round(live.cad) : 0;
+    if (elapsed >= TOTAL && live.testN && !els.avgw.value) { els.avgw.value = Math.round(live.testSum / live.testN); calc(); }
+  }
+  async function attach() {
+    var srv = await live.dev.gatt.connect();
+    var svc = await srv.getPrimaryService("cycling_power");
+    live.char = await svc.getCharacteristic("cycling_power_measurement");
+    live.char.addEventListener("characteristicvaluechanged", onData);
+    await live.char.startNotifications();
+    m.live.hidden = false; m.bt.textContent = "Pedali collegati"; m.btmsg.textContent = "";
+  }
+  m.bt.addEventListener("click", async function () {
+    if (!navigator.bluetooth) { m.btmsg.textContent = "Questo browser non supporta il Bluetooth. Apri la pagina con Chrome su Mac."; return; }
+    try {
+      live.dev = await navigator.bluetooth.requestDevice({ filters: [{ services: ["cycling_power"] }] });
+      live.dev.addEventListener("gattserverdisconnected", function () {
+        m.bt.textContent = "Ricollega pedali"; m.btmsg.textContent = "Collegamento perso. Tocca Ricollega, il timer continua.";
+      });
+      await attach();
+    } catch (e) { m.btmsg.textContent = e.name === "NotFoundError" ? "Nessun pedale scelto. Pedala per svegliarli e riprova." : "Collegamento non riuscito: " + e.message; }
+  });
+
+  var fb = $("full");
+  function setFull(on) {
+    document.body.classList.toggle("full", on);
+    fb.textContent = on ? "Esci" : "Schermo intero";
+    window.scrollTo(0, 0);
+  }
+  fb.addEventListener("click", function () {
+    var on = !document.body.classList.contains("full");
+    setFull(on);
+    if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {});
+    else if (!on && document.fullscreenElement) document.exitFullscreen().catch(function () {});
+  });
+  document.addEventListener("fullscreenchange", function () { if (!document.fullscreenElement) setFull(false); });
+
+  function band(f, a, b) { return Math.round(f * a) + "-" + Math.round(f * b) + "<small>W</small>"; }
+  function calc() {
+    var w = parseFloat(els.avgw.value), h = parseFloat(els.avgh.value);
+    store("ftp-w", els.avgw.value); store("ftp-h", els.avgh.value);
+    if (!(w > 0)) { els.out.innerHTML = ""; els.hint.textContent = "Inserisci la potenza media: calcolo FTP (95%) e fasce del piano."; return; }
+    var f = w * .95;
+    var rows = [["FTP", Math.round(f) + "<small>W</small>"], ["Bici facile (55-65%)", band(f, .55, .65)], ["Sweet spot (88-93%)", band(f, .88, .93)], ["90-95%", band(f, .9, .95)], ["95-100%", band(f, .95, 1)]];
+    if (h > 0) rows.push(["Soglia FC bici", Math.round(h) + "<small>bpm</small>"]);
+    els.out.innerHTML = rows.map(function (r) { return '<div><div class="label">' + r[0] + '</div><div class="value">' + r[1] + "</div></div>"; }).join("");
+    els.hint.textContent = "Scrivi questi numeri a Claude, oppure chiedi di leggerli da Garmin: aggiorna le zone nel piano.";
+  }
+  els.avgw.addEventListener("input", calc); els.avgh.addEventListener("input", calc);
+  var sw = load("ftp-w"), sh = load("ftp-h"); if (sw) els.avgw.value = sw; if (sh) els.avgh.value = sh;
+  calc(); render();
+  setInterval(tick, 200);
+})();
+</script>
+</body>
+</html>
